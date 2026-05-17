@@ -1,53 +1,107 @@
 name: build
+
+# Security note: this workflow uses only `matrix.*` interpolations (config-time
+# values) and `startsWith(github.ref, ...)` in if conditions. No user-controlled
+# input (issue titles, PR bodies, commit messages) is used in run: commands.
+
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  sdist:
-    name: sdist
-    runs-on: ubuntu-latest
+  test:
+    name: test (${{ matrix.os }} / py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11", "3.12", "3.13"]
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v6
 
-    - name: Install Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.8
-        
-    - name: Build sdist
-      run: |
-        pip install wheel
-        python setup.py sdist bdist_wheel
-        
-    - name: Install/Test sdist
-      run: |
-        pip install dist/*.tar.gz
-        pip install pyjerasure
-        pip install pytest
-        pytest tests
-        
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: dist
-        path: dist/
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
 
-  publish:
+      - name: Install project + test deps
+        run: uv sync --extra test
+
+      - name: Run tests (excluding FEC which needs libJerasure C lib)
+        run: uv run pytest tests/ --ignore=tests/test_fec.py -v
+
+  fec-test:
+    name: fec-test (ubuntu / py3.11) -- libJerasure required
     runs-on: ubuntu-latest
-    needs: [sdist]
-    if: startsWith(github.ref, 'refs/tags')
+    continue-on-error: true
     steps:
-      - name: Download Wheels
-        uses: actions/download-artifact@v3
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: true
+          python-version: "3.11"
+
+      - name: Install libJerasure system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libjerasure-dev libgf-complete-dev
+
+      - name: Install project + fec + test
+        run: uv sync --extra fec --extra test
+
+      - name: Run FEC tests
+        run: uv run pytest tests/test_fec.py -v
+
+  build-sdist:
+    name: build sdist/wheel
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: true
+          python-version: "3.13"
+
+      - name: Build distribution
+        run: uv build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
         with:
           name: dist
           path: dist/
-      - name: Publish
-        uses: pypa/gh-action-pypi-publish@master
+
+  publish:
+    name: publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [build-sdist]
+    if: startsWith(github.ref, 'refs/tags')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pyremoteplay
+    permissions:
+      id-token: write  # required for trusted publishing (OIDC, no API token)
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v6
         with:
-          user: __token__
-          password: ${{ secrets.PYPI_PASSWORD }}
-          skip_existing: true
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
