@@ -211,7 +211,17 @@ class RPDevice:
         if old_status != data:
             _LOGGER.debug("Status: %s", self.status)
             title_id = self.status.get("running-app-titleid")
-            if title_id and asyncio.get_event_loop().is_running:
+            # asyncio.get_event_loop() emits a DeprecationWarning on Python 3.12+
+            # when there's no running loop in the current thread; prefer
+            # get_running_loop() which raises a clear RuntimeError if called
+            # outside an async context — we just catch that and skip the
+            # background fetch since there is no loop to schedule it on.
+            running_loop = None
+            try:
+                running_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+            if title_id and running_loop is not None:
                 asyncio.ensure_future(self._get_media_info(title_id))
             else:
                 self._media_info = None

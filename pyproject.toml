@@ -88,6 +88,8 @@ test = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-cov>=5.0",
+    # numpy is used for synthetic frame generation in tests/test_receiver.py
+    "numpy>=2.0",
 ]
 dev = [
     "pyremoteplay[av,fec,gui,test]",
@@ -110,6 +112,8 @@ Issues = "https://github.com/elioseverojunior/pyremoteplay/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pyremoteplay"]
+# Ship PEP 561 `py.typed` marker so consumers' type checkers pick up our hints.
+include = ["pyremoteplay/py.typed"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -157,8 +161,23 @@ ignore = [
 
 [tool.mypy]
 python_version = "3.11"
-strict = false  # incremental migration — set to true once all modules pass
-warn_unused_ignores = true
-warn_redundant_casts = true
-check_untyped_defs = true
-ignore_missing_imports = true  # for av, pyps4_2ndscreen, etc.
+# Incremental adoption strategy: ship py.typed so downstream consumers see
+# our existing hints, but don't gate CI on strict checks yet — the codebase
+# was written without `disallow_untyped_defs`, so enabling that today produces
+# ~1k "missing annotation" errors that would block CI without adding signal.
+# Future work: incrementally add hints module-by-module, with each module
+# graduating to strict via [[tool.mypy.overrides]].
+strict = false
+ignore_missing_imports = true  # for av, pyps4_2ndscreen, sounddevice, ...
+exclude = [
+    # Auto-generated protobuf stubs — re-generated, not hand-maintained
+    "pyremoteplay/takion_pb2\\.py$",
+    # GUI is optional and not on our supported surface
+    "pyremoteplay/gui/.*",
+]
+
+# Modules verified clean under strict mode. New code should land here so we
+# catch regressions in the API surface PS5 Coach (and other consumers) use.
+[[tool.mypy.overrides]]
+module = ["pyremoteplay.__version__"]
+strict = true
