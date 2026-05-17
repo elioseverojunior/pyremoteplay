@@ -1,9 +1,15 @@
 # pyremoteplay #
 [![PyPi](https://img.shields.io/pypi/v/pyremoteplay.svg)](https://pypi.org/project/pyremoteplay/)
-[![Build Status](https://github.com/ktnrg45/pyremoteplay/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/ktnrg45/pyremoteplay/actions/?query=workflow%3Abuild)
+[![Build Status](https://github.com/elioseverojunior/pyremoteplay/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/elioseverojunior/pyremoteplay/actions/?query=workflow%3Abuild)
 [![Documentation Status](https://readthedocs.org/projects/pyremoteplay/badge/?version=latest)](https://pyremoteplay.readthedocs.io/en/latest/?badge=latest)
 
 Python PlayStation Remote Play API
+
+> **Fork notice.** This is an actively-maintained fork of
+> [ktnrg45/pyremoteplay](https://github.com/ktnrg45/pyremoteplay), which has
+> not seen commits since August 2022. The fork carries modernization work
+> (PEP 621 packaging, uv lock files, Python 3.11+ minimum, refreshed CI,
+> macOS validation, additional tests) while preserving the original API.
 
 [Documentation](https://pyremoteplay.readthedocs.io/en/latest)
 
@@ -12,17 +18,15 @@ This project provides an API to programmatically connect to and control Remote P
 
 ## Features ##
 - API to programatically control host and expose live audio/video stream
-- Registering client for Remote Play on the host 
+- Registering client for Remote Play on the host
 - Interface for controlling the host, which emulates a DualShock controller
 - Ability to power off/on the host if standby is enabled
 - GUI which displays the live stream and supports keyboard/mouse input
 - Support for controllers
 
 ## Requirements ##
-- Python 3.8+
-- OS: Linux, Windows 10
-
-- Note: Untested on MacOS
+- Python **3.11+** (was 3.8+ in upstream)
+- OS: Linux, Windows 10, **macOS** (validated in CI)
 
 ## Network Requirements ##
 This project will only work with local devices; devices on the same local network.
@@ -37,36 +41,54 @@ Below is a list of such dependencies.
 `uvloop` is supported for the GUI and will be used if installed.
 
 ## Installation ##
-It is recommended to install in a virtual environment.
 
+### Using uv (recommended) ###
+
+This fork is set up as a [uv](https://docs.astral.sh/uv/) project. To use it
+as a dependency from another `pyproject.toml`:
+
+```toml
+[project]
+dependencies = [
+    "pyremoteplay @ git+https://github.com/elioseverojunior/pyremoteplay.git",
+]
 ```
-  python3 -m venv .
-  source bin/activate
+
+Or installed directly:
+
+```bash
+uv pip install "git+https://github.com/elioseverojunior/pyremoteplay.git"
+```
+
+Available extras (PEP 621): `av`, `fec`, `gui`, `test`, `dev`. Example:
+
+```bash
+uv pip install "pyremoteplay[av,gui] @ git+https://github.com/elioseverojunior/pyremoteplay.git"
 ```
 
 ### From pip ###
-To install core package run:
-```
-pip install pyremoteplay
-```
 
-To install with optional GUI run:
-```
-pip install pyremoteplay[gui]
+The legacy `pip install pyremoteplay` still resolves to the **upstream** PyPI
+package (0.7.6) which does not include the modernization changes in this
+fork. Use the git URL above if you need them.
+
+```bash
+pip install "git+https://github.com/elioseverojunior/pyremoteplay.git"
 ```
 
 ### From Source ###
-To Install from source, clone this repo and navigate to the top level directory.
 
-```
-  pip install -r requirements.txt
-  python setup.py install
+Clone this repo and use uv:
+
+```bash
+git clone https://github.com/elioseverojunior/pyremoteplay.git
+cd pyremoteplay
+uv sync --extra dev
 ```
 
-To Install GUI dependencies run:
-```
-  pip install -r requirements-gui.txt
-```
+GUI extras require additional system libraries (PyAV needs FFmpeg, FEC needs
+libJerasure). See the **Extras** comments in `pyproject.toml` for per-OS
+install hints.
 
 ## Setup ##
 There are some steps that must be completed to use this library from a user standpoint.
