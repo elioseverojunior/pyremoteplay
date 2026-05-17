@@ -13,7 +13,7 @@ from struct import pack_into
 
 import requests
 from Cryptodome.Random import get_random_bytes
-from pyee import ExecutorEventEmitter
+from pyee.executor import ExecutorEventEmitter
 
 from pyremoteplay.receiver import AVReceiver
 from .const import (
